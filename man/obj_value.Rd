@@ -12,7 +12,7 @@ obj_value(X, y, a, object, beta, prob = 0.5)
 \item{y}{Response variable to be maximized on average if every subject follows
 the treatment recommended by the optimal regime.}
 
-\item{a}{Received treatments for n_obs subjects. Must be bivariate, and labeled as {0,1}.}
+\item{a}{Received treatments for n_obs subjects. Must be bivariate, and labeled as \{0,1\}.}
 
 \item{object}{Fitted "DTR.KernSmooth" or "DTR.Boots.KernSmooth" model object.}
 
