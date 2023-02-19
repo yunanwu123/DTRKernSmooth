@@ -7,7 +7,7 @@
 #' @param X Input matrix, of dimension n_obs x n_vars; each row is an observation vector.
 #' @param y Response variable to be maximized on average if every subject follows
 #' the treatment recommended by the optimal regime.
-#' @param a Received treatments for n_obs subjects. Must be bivariate, and labeled as {0,1}.
+#' @param a Received treatments for n_obs subjects. Must be bivariate, and labeled as \{0,1\}.
 #' @param object Fitted "DTR.KernSmooth" or "DTR.Boots.KernSmooth" model object.
 #' @param beta The treatment regime vector. Cannot be missing if "object" is not provided.
 #' @param prob The propensity score for n_obs subjects, i.e., P(a=1|X). If \code{NULL},
@@ -113,7 +113,7 @@ obj_value<-function(X, y, a, object, beta, prob = 0.5){
 #' @param object Fitted "DTR.KernSmooth" model object.
 #' @param newX Matrix of new values for X at which predictions are to be made.
 #' @param ... Not used. Other arguments to predict.
-#' @details All the predicted optimal treatments are labeled as {0,1}.
+#' @details All the predicted optimal treatments are labeled as \{0,1\}.
 #' @return A vector of predicted optimal treatments for the new subjects given
 #' the fitted DTR.KernSmooth model.
 #' @author Yunan Wu and Lan Wang\cr Maintainer:
@@ -159,7 +159,7 @@ predict.DTR.KernSmooth<-function(object, newX, ...){
 #' @param object Fitted "DTR.Boots.KernSmooth" model object.
 #' @param newX Matrix of new values for X at which predictions are to be made.
 #' @param ... Not used. Other arguments to predict.
-#' @details All the predicted optimal treatments are labeled as {0,1}.
+#' @details All the predicted optimal treatments are labeled as \{0,1\}.
 #' @return A vector of predicted optimal treatments for the new subjects given
 #' the fitted DTR.Boots.KernSmooth model.
 #' @author Yunan Wu and Lan Wang\cr Maintainer:
@@ -210,7 +210,7 @@ predict.DTR.Boots.KernSmooth<-function(object, newX, ...){
 #' @param X Input matrix, of dimension n_obs x n_vars; each row is an observation vector.
 #' @param y Response variable to be maximized on average if every subject follows
 #' the treatment recommended by the optimal regime.
-#' @param a Received treatments for n_obs subjects. Must be bivariate, and labeled as {0,1}.
+#' @param a Received treatments for n_obs subjects. Must be bivariate, and labeled as \{0,1\}.
 #' @param prob The propensity score for n_obs subjects, i.e., P(a=1|X). If \code{NULL},
 #' it would be estimated by logistic regression a~X.
 #' @param kernel The kernel function to be used in smoothed estimation. Should be
@@ -333,7 +333,7 @@ DTR.KernSmooth<-function(X, y, a, prob = 0.5, kernel = "normal", phi0 = 1, gamma
 #' @param X Input matrix, of dimension n_obs x n_vars; each row is an observation vector.
 #' @param y Response variable to be maximized on average if every subject follows
 #' the treatment recommended by the optimal regime.
-#' @param a Received treatments for n_obs subjects. Must be bivariate, and labeled as {0,1}.
+#' @param a Received treatments for n_obs subjects. Must be bivariate, and labeled as \{0,1\}.
 #' @param prob The propensity score for n_obs subjects, i.e., P(a=1|X). If \code{NULL},
 #' it would be estimated by logistic regression a~X.
 #' @param B The number of repetitions in the inference procedure by weighted bootstrap.
