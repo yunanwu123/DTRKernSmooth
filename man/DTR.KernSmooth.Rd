@@ -15,7 +15,7 @@ DTR.KernSmooth(X, y, a, prob = 0.5, kernel = "normal",
 \item{y}{Response variable to be maximized on average if every subject follows
 the treatment recommended by the optimal regime.}
 
-\item{a}{Received treatments for n_obs subjects. Must be bivariate, and labeled as {0,1}.}
+\item{a}{Received treatments for n_obs subjects. Must be bivariate, and labeled as \{0,1\}.}
 
 \item{prob}{The propensity score for n_obs subjects, i.e., P(a=1|X). If \code{NULL},
 it would be estimated by logistic regression a~X.}
