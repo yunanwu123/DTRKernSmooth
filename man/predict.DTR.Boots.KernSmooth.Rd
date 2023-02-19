@@ -22,7 +22,7 @@ This function predicts the optimal treatments for new subjects
 from a fitted DTR.Boots.KernSmooth model.
 }
 \details{
-All the predicted optimal treatments are labeled as {0,1}.
+All the predicted optimal treatments are labeled as \{0,1\}.
 }
 \examples{
 n <- 5e3; p <- 3
