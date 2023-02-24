@@ -1,6 +1,6 @@
 # Estimate and Make Inference about Optimal Treatment Regimes via Smoothed Methods
 
-This R package probides functions to estimate the optimal treatment regime among all linear regimes via smoothed estimation methods, 
+This R package provides functions to estimate the optimal treatment regime among all linear regimes via smoothed estimation methods, 
 and construct element-wise confidence intervals for the optimal linear treatment regime vector, as well as the confidence interval 
 for the optimal value via wild bootstrap procedures, if the population follows treatments recommended by the optimal linear regime. 
 
