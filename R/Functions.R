@@ -2,8 +2,7 @@
 #'
 #' @description This function estimates the average response value of the input
 #' data given a 'DTR.KernSmooth' / 'DTR.Boots.KernSmooth' model object or an
-#' estimated optimal treatment regime vector
-#' @usage obj_value(X, y, a, object, beta, prob = 0.5)
+#' estimated optimal treatment regime vector, with doubly robust correction
 #' @param X Input matrix, of dimension n_obs x n_vars; each row is an observation vector.
 #' @param y Response variable to be maximized on average if every subject follows
 #' the treatment recommended by the optimal regime.
@@ -12,6 +11,10 @@
 #' @param beta The treatment regime vector. Cannot be missing if "object" is not provided.
 #' @param prob The propensity score for n_obs subjects, i.e., P(a=1|X). If \code{NULL},
 #' it would be estimated by logistic regression a~X.
+#' @param m0 The estimated response values if the subjects receive treatment 0.
+#' The default is the average response value of all subjects who receive treatment 0.
+#' @param m1 The estimated response values if the subjects receive treatment 1.
+#' The default is the average response value of all subjects who receive treatment 1.
 #' @details \code{object} and \code{beta} cannot be both missing. If the input
 #' data (X, y, a) is missing but \code{object} is provided, the function will
 #' return the optimal value of the input object.
@@ -25,30 +28,32 @@
 #' \emph{Resampling-based Confidence Intervals for Model-free Robust Inference
 #' on Optimal Treatment Regimes, Biometrics, 77: 465– 476}, \doi{10.1111/biom.13337}.
 #' @examples
-#' n <- 5e3; p <- 3
-#' beta <- c(0.2,1,-0.5,-0.8)
+#' n <- 1000; p <- 3
+#' beta <- c(0.2,1,-0.5,-0.8)*0.7
 #' beta1 <- c(1,-0.5,-0.5,0.5)
 #'
+#' set.seed(123)
 #' X <- matrix(rnorm(n*p),n)
-#' a <- rbinom(n,1,0.5)
+#' a <- rbinom(n,1,0.6)
 #' mean1 <- exp(cbind(1,X) %*% beta1)
 #' mean2 <- 8/(1 + exp(-cbind(1,X) %*% beta)) - 4
 #' y <- mean1 + a * mean2 + rnorm(n)
 #'
-#' smooth_model <- DTR.KernSmooth(X, y, a)
-#' boots_smooth_model <- DTR.Boots.KernSmooth(X, y, a)
+#' smooth_model <- DTR.KernSmooth(X, y, a, prob = 0.6)
+#' boots_smooth_model <- DTR.Boots.KernSmooth(X, y, a, prob = 0.6)
 #'
-#' newX <- matrix(rnorm(n*p),n)
-#' newa <- rbinom(n,1,0.5)
+#' newn <- 1e4
+#' newX <- matrix(rnorm(newn*p),newn)
+#' newa <- rbinom(newn,1,0.5)
 #' newmean1 <- exp(cbind(1,newX) %*% beta1)
 #' newmean2 <- 8/(1 + exp(-cbind(1,newX) %*% beta)) - 4
-#' newy <- newmean1 + newa * newmean2 + rnorm(n)
+#' newy <- newmean1 + newa * newmean2 + rnorm(newn)
 #'
 #' obj_value(newX, newy, newa, smooth_model)
 #' obj_value(newX, newy, newa, boots_smooth_model)
 #' obj_value(newX, newy, newa, beta = smooth_model$beta_smooth)
 #'
-obj_value<-function(X, y, a, object, beta, prob = 0.5){
+obj_value<-function(X, y, a, object, beta, prob = 0.5, m0 = mean(y[a==0]), m1 = mean(y[a==1])){
   if(missing(object)) {
     if(missing(beta)){
       stop("Please supply either a fitted 'DTR.KernSmooth' / 'DTR.Boots.KernSmooth' model object,
@@ -70,7 +75,9 @@ obj_value<-function(X, y, a, object, beta, prob = 0.5){
       nobs <- length(y)
       prob <- rep(prob,length=nobs)
     }
-    res <- obj_value_C(cbind(1,X), y, a, beta, prob)
+    m1 <- rep(m1,length = length(y))
+    m0 <- rep(m0,length = length(y))
+    res <- obj_value_C(cbind(1,X), y, a, m1, m0, beta, prob)
   } else{
     if(missing(X)|missing(y)|missing(a)){
       if(attr(object, "class")=="DTR.KernSmooth"){
@@ -99,7 +106,9 @@ obj_value<-function(X, y, a, object, beta, prob = 0.5){
         nobs <- length(y)
         prob <- rep(prob,length=nobs)
       }
-      res <- obj_value_C(cbind(1,X), y, a, beta, prob)
+      m1 <- rep(m1,length = length(y))
+      m0 <- rep(m0,length = length(y))
+      res <- obj_value_C(cbind(1,X), y, a, m1, m0, beta, prob)
     }
   }
   return(res)
@@ -124,18 +133,20 @@ obj_value<-function(X, y, a, object, beta, prob = 0.5){
 #' \emph{Resampling-based Confidence Intervals for Model-free Robust Inference
 #' on Optimal Treatment Regimes, Biometrics, 77: 465– 476}, \doi{10.1111/biom.13337}.
 #' @examples
-#' n <- 5e3; p <- 3
-#' beta <- c(0.2,1,-0.5,-0.8)
+#' n <- 1000; p <- 3
+#' beta <- c(0.2,1,-0.5,-0.8)*0.7
 #' beta1 <- c(1,-0.5,-0.5,0.5)
 #'
+#' set.seed(123)
 #' X <- matrix(rnorm(n*p),n)
-#' a <- rbinom(n,1,0.5)
+#' a <- rbinom(n,1,0.6)
 #' mean1 <- exp(cbind(1,X) %*% beta1)
 #' mean2 <- 8/(1 + exp(-cbind(1,X) %*% beta)) - 4
 #' y <- mean1 + a * mean2 + rnorm(n)
 #'
-#' smooth_model <- DTR.KernSmooth(X, y, a)
-#' newX <- matrix(rnorm(n*p),n)
+#' smooth_model <- DTR.KernSmooth(X, y, a, prob = 0.6)
+#' newn <- 10
+#' newX <- matrix(rnorm(newn*p),newn)
 #' predict(smooth_model, newX)
 #'
 #' @method predict DTR.KernSmooth
@@ -170,18 +181,20 @@ predict.DTR.KernSmooth<-function(object, newX, ...){
 #' \emph{Resampling-based Confidence Intervals for Model-free Robust Inference
 #' on Optimal Treatment Regimes, Biometrics, 77: 465– 476}, \doi{10.1111/biom.13337}.
 #' @examples
-#' n <- 5e3; p <- 3
-#' beta <- c(0.2,1,-0.5,-0.8)
+#' n <- 1000; p <- 3
+#' beta <- c(0.2,1,-0.5,-0.8)*0.7
 #' beta1 <- c(1,-0.5,-0.5,0.5)
 #'
+#' set.seed(123)
 #' X <- matrix(rnorm(n*p),n)
-#' a <- rbinom(n,1,0.5)
+#' a <- rbinom(n,1,0.6)
 #' mean1 <- exp(cbind(1,X) %*% beta1)
 #' mean2 <- 8/(1 + exp(-cbind(1,X) %*% beta)) - 4
 #' y <- mean1 + a * mean2 + rnorm(n)
 #'
-#' boots_smooth_model <- DTR.Boots.KernSmooth(X, y, a)
-#' newX <- matrix(rnorm(n*p),n)
+#' boots_smooth_model <- DTR.Boots.KernSmooth(X, y, a, prob = 0.6)
+#' newn <- 10
+#' newX <- matrix(rnorm(newn*p),newn)
 #' predict(boots_smooth_model, newX)
 #'
 #' @method predict DTR.Boots.KernSmooth
@@ -202,24 +215,27 @@ predict.DTR.Boots.KernSmooth<-function(object, newX, ...){
 #' estimation methods
 #'
 #' @description This function estimates the optimal treatment regime among all
-#' linear regimes with smoothed estimation methods, and outputs a 'DTR.KernSmooth'
-#' model object
-#' @usage DTR.KernSmooth(X, y, a, prob = 0.5, kernel = "normal",
-#'                phi0 = 1, gamma = 2, err_tol = 1e-8,
-#'                iter_tol = 100)
+#' linear regimes with smoothed estimation methods and doubly robust correction,
+#' and outputs a 'DTR.KernSmooth' model object
 #' @param X Input matrix, of dimension n_obs x n_vars; each row is an observation vector.
 #' @param y Response variable to be maximized on average if every subject follows
 #' the treatment recommended by the optimal regime.
 #' @param a Received treatments for n_obs subjects. Must be bivariate, and labeled as \{0,1\}.
 #' @param prob The propensity score for n_obs subjects, i.e., P(a=1|X). If \code{NULL},
 #' it would be estimated by logistic regression a~X.
+#' @param m0 The estimated response values if the subjects receive treatment 0.
+#' The default is the average response value of all subjects who receive treatment 0.
+#' @param m1 The estimated response values if the subjects receive treatment 1.
+#' The default is the average response value of all subjects who receive treatment 1.
 #' @param kernel The kernel function to be used in smoothed estimation. Should be
-#' one of "normal" and "poly". See more details in "Details".
-#' @param phi0 The initial step size to be used in the Proximal Algorithm.
+#' one of "normal" and "poly". The default value is "normal". See more details in "Details".
+#' @param phi0 The initial step size to be used in the Proximal Algorithm. The
+#' default value is 1.
 #' @param gamma The multiplier of the step sizes to be used in the Proximal
-#' Algorithm. Must be 0 < gamma < 1.
-#' @param err_tol The desired accuracy in the estimation.
+#' Algorithm. Must be gamma > 1. The default value is 1.1.
+#' @param err_tol The desired accuracy in the estimation. The default value is 1e-8.
 #' @param iter_tol The maximum number of iterations in the estimation algorithm.
+#' The default value is 100.
 #' @details This function estimates the optimal linear treatment regime to maximizes
 #' the average outcome among the population if every individual follows the treatment
 #' recommended by this treatment regime.\cr
@@ -228,7 +244,10 @@ predict.DTR.Boots.KernSmooth<-function(object, newX, ...){
 #' (e.g., via logistic regression). Let \eqn{\widehat{\bm{\xi}}} be an estimate
 #' of \eqn{\bm{\xi}}. Hence, our goal is to estimate \eqn{\bm{\beta}} which maximizes:
 #' \deqn{V_n(\bm{\beta})=n^{-1}\sum_{i=1}^n \frac{\left[A_i I\left(\bm{x}_i^T\bm{\beta}>0\right)+(1-A_i)I\left(\bm{x}_i^T\bm{\beta}\leq 0\right)\right]Y_i}
-#' {A_i\pi(\bm{x}_i, \widehat{\bm{\xi}}) +(1-A_i)\left[1-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right]}.}
+#' {\pi(\bm{x}_i, \widehat{\bm{\xi}})I\left(\bm{x}_i^T\bm{\beta}>0\right) + \left[1-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right]I\left(\bm{x}_i^T\bm{\beta}\leq 0\right)}-
+#' n^{-1}\sum_{i=1}^n \frac{\left[A_i-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right] \widehat{m}_1(\bm{x}_i)I\left(\bm{x}_i^T\bm{\beta}>0\right)-\left[A_i-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right] \widehat{m}_0(\bm{x}_i)I\left(\bm{x}_i^T\bm{\beta}\leq 0\right)}
+#' {\pi(\bm{x}_i, \widehat{\bm{\xi}})I\left(\bm{x}_i^T\bm{\beta}>0\right) + \left[1-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right]I\left(\bm{x}_i^T\bm{\beta}\leq 0\right)},}
+#' with the second term as the doubly correction.
 #' For the identifability, we normalize the estimator such that the second element
 #' has magnitude 1, i.e., \eqn{|\widehat{\beta}_2|=1}.\cr
 #' To alleviates the computational challenge due to the nonsmooth indicator function,
@@ -236,13 +255,15 @@ predict.DTR.Boots.KernSmooth<-function(object, newX, ...){
 #' function \eqn{K(\cdot)} to approximate the indicator function \eqn{I(\cdot)}.
 #' That is, we will estimate \eqn{\bm{\beta}} which maximizes:
 #' \deqn{n^{-1}\sum_{i=1}^n \frac{\left[A_i K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)+(1-A_i)\left\{1-K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)\right\}\right]Y_i}
-#' {A_i\pi(\bm{x}_i, \widehat{\bm{\xi}}) +(1-A_i)\left[1-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right]}.}
+#' {\pi(\bm{x}_i, \widehat{\bm{\xi}}) K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right) + \left[1-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right]*\left[1-K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)\right]}-
+#' n^{-1}\sum_{i=1}^n \frac{\left[A_i-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right] \widehat{m}_1(\bm{x}_i)K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)-\left[A_i-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right] \widehat{m}_0(\bm{x}_i) \left\{1-K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)\right\}}
+#' {\pi(\bm{x}_i, \widehat{\bm{\xi}})K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right) + \left[1-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right] \left\{1-K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)\right\}}.}
 #' In this function, we provide two options for the smoothed kernel functions:
 #' \itemize{
-#'  \item{"normal" }{ The c.d.f of N(0,1) distribution.}
-#'  \item{"poly" }{   A polynomial function \eqn{K(v) =\left[0.5 + \frac{105}{64}\{\frac{v}{5}-\frac{5}{3}(\frac{v}{5})^3 +\frac{7}{5}(\frac{v}{5})^5 - \frac{3}{7}(\frac{v}{5})^7\}\right]I( -5\leq v \leq 5)+I(v>5)}.}
+#'  \item{"normal" }{ The c.d.f of N(0,1) distribution. The bandwidth is set as \eqn{h_n=0.9n^{-0.2} \min\{std (\bm{x}_i^T\bm{\beta}),IQR(\bm{x}_i^T\bm{\beta})/1.34\}}.}
+#'  \item{"poly" }{   A polynomial function \eqn{K(v) =\left[0.5 + \frac{105}{64}\{\frac{v}{5}-\frac{5}{3}(\frac{v}{5})^3 +\frac{7}{5}(\frac{v}{5})^5 - \frac{3}{7}(\frac{v}{5})^7\}\right]I( -5\leq v \leq 5)+I(v>5)}. The bandwidth is set as \eqn{h_n=0.9n^{-1/9} \min\{std (\bm{x}_i^T\bm{\beta}),IQR(\bm{x}_i^T\bm{\beta})/1.34\}}.}
 #'  }
-#' The bandwidth is set as \eqn{h_n=0.9n^{-0.2} \min\{std (\bm{x}_i^T\bm{\beta}),IQR(\bm{x}_i^T\bm{\beta})/1.34\}}.\cr
+#' \cr
 #' To solve the non-convexity problem of the optimization, we employ a proximal
 #' gradient descent algorithm for estimation. See more details in the reference.
 #' @return An object of class "DTR.KernSmooth", which is a list containing at
@@ -251,6 +272,8 @@ predict.DTR.Boots.KernSmooth<-function(object, newX, ...){
 #'  \item{y}{The response variable used.}
 #'  \item{a}{The treatment vector received by each subject.}
 #'  \item{prob}{The propensity score vector for each subject.}
+#'  \item{m0}{The estimated response values used if the subjects receive treatment 0.}
+#'  \item{m1}{The estimated response values used if the subjects receive treatment 1.}
 #'  \item{kernel}{The kernel function used in smoothed estimation.}
 #'  \item{beta_smooth}{The estimated optimal treatment regime vector.}
 #'  \item{opt_treatment}{The predicted optimal treatments for the input data
@@ -272,22 +295,36 @@ predict.DTR.Boots.KernSmooth<-function(object, newX, ...){
 #' discussion papers, Université catholique de Louvain, Center for Operations
 #' Research and Econometrics (CORE)}.
 #' @examples
-#' n <- 5e3; p <- 3
-#' beta <- c(0.2,1,-0.5,-0.8)
+#' n <- 1000; p <- 3
+#' beta <- c(0.2,1,-0.5,-0.8)*0.7
 #' beta1 <- c(1,-0.5,-0.5,0.5)
 #'
+#' set.seed(123)
 #' X <- matrix(rnorm(n*p),n)
-#' a <- rbinom(n,1,0.5)
+#' a <- rbinom(n,1,0.6)
 #' mean1 <- exp(cbind(1,X) %*% beta1)
 #' mean2 <- 8/(1 + exp(-cbind(1,X) %*% beta)) - 4
 #' y <- mean1 + a * mean2 + rnorm(n)
 #'
-#' smooth_model <- DTR.KernSmooth(X, y, a)
-#' smooth_model$beta_smooth
-#' smooth_model$value_smooth
+#' smooth_model_ci <- DTR.KernSmooth(X, y, a, prob = 0.6)
+#' smooth_model_ci$beta_smooth
+#' smooth_model_ci$value_smooth
 #'
-DTR.KernSmooth<-function(X, y, a, prob = 0.5, kernel = "normal", phi0 = 1, gamma = 2,
-                         err_tol = 1e-8, iter_tol = 100){
+#' smooth_model_ic <- DTR.KernSmooth(X, y, a, prob = 0.4, m0 = mean1, m1 = mean1 + mean2)
+#' smooth_model_ic$beta_smooth
+#' smooth_model_ic$value_smooth
+#'
+#' smooth_model_cc <- DTR.KernSmooth(X, y, a, prob = 0.6, m0 = mean1, m1 = mean1 + mean2)
+#' smooth_model_cc$beta_smooth
+#' smooth_model_cc$value_smooth
+#'
+#' smooth_model_ii <- DTR.KernSmooth(X, y, a, prob = 0.4)
+#' smooth_model_ii$beta_smooth
+#' smooth_model_ii$value_smooth
+#'
+DTR.KernSmooth<-function(X, y, a, prob = 0.5, m0 = mean(y[a==0]), m1 = mean(y[a==1]),
+                         kernel = "normal", phi0 = 1, gamma = 1.1, err_tol = 1e-8,
+                         iter_tol = 100){
   if(missing(X)|missing(y)|missing(a)){
     stop("Please supply the data (X, y, a) to estimate the optimal value")
   }
@@ -298,7 +335,9 @@ DTR.KernSmooth<-function(X, y, a, prob = 0.5, kernel = "normal", phi0 = 1, gamma
     stop("'kernel' should be one of 'normal' and 'poly'")
   }
   nvars <- dim(X)[2]
-  initial <- rep(0,nvars+1)
+  model_init <- lm(y~X*a)
+  initial <- coef(model_init)[0:nvars+2+nvars]
+  initial <- initial/abs(initial[2])
 
   if(is.null(prob)){
     prob_model <- glm(a ~ X, family = binomial)
@@ -310,8 +349,10 @@ DTR.KernSmooth<-function(X, y, a, prob = 0.5, kernel = "normal", phi0 = 1, gamma
     nobs <- dim(X)[1]
     prob <- rep(prob,length=nobs)
   }
-  res <- Smooth_C(cbind(1,X), y, a, initial, prob, kernel,
-                  phi0, gamma, err_tol, iter_tol)
+  m1 <- rep(m1,length = length(y))
+  m0 <- rep(m0,length = length(y))
+  res <- Smooth_C(cbind(1,X), y, a, initial, prob, kernel, m1, m0, phi0, gamma,
+                  err_tol, iter_tol)
   attr(res, "class") <- "DTR.KernSmooth"
   return(res)
 }
@@ -319,48 +360,52 @@ DTR.KernSmooth<-function(X, y, a, prob = 0.5, kernel = "normal", phi0 = 1, gamma
 #' Make inference about the linear treatment regime vector and the optimal value
 #'
 #' @description This function estimates the optimal treatment regime among all
-#' linear regimes with smoothed estimation methods, and construct element-wise
-#' 100(1-alpha)\% confidence intervals for the optimal linear treatment regime
-#' vector, and the 100(1-alpha)\% confidence interval for the optimal value if
-#' the population follows treatments recommended by the optimal linear regime.
-#' It outputs a 'DTR.Boots.KernSmooth' model object
-#' @usage DTR.Boots.KernSmooth(X, y, a, prob = 0.5,
-#'                      B = 500, alpha = 0.05,
-#'                      kernel = "normal",
-#'                      phi0 = 1, gamma = 2,
-#'                      err_tol = 1e-8,
-#'                      iter_tol = 100)
+#' linear regimes with smoothed estimation methods and doubly robust correction,
+#' and construct element-wise 100(1-alpha)\% confidence intervals for the optimal
+#' linear treatment regime vector, and the 100(1-alpha)\% confidence interval for
+#' the optimal value if the population follows treatments recommended by the optimal
+#' linear regime. It outputs a 'DTR.Boots.KernSmooth' model object
 #' @param X Input matrix, of dimension n_obs x n_vars; each row is an observation vector.
 #' @param y Response variable to be maximized on average if every subject follows
 #' the treatment recommended by the optimal regime.
 #' @param a Received treatments for n_obs subjects. Must be bivariate, and labeled as \{0,1\}.
 #' @param prob The propensity score for n_obs subjects, i.e., P(a=1|X). If \code{NULL},
 #' it would be estimated by logistic regression a~X.
-#' @param B The number of repetitions in the inference procedure by weighted bootstrap.
-#' @param alpha The confidence level of the confidence interval.
+#' @param B The number of repetitions in the inference procedure by weighted
+#' bootstrap. The default value is 500.
+#' @param alpha The confidence level of the confidence interval. The default value is 0.05.
+#' @param m0 The estimated response values if the subjects receive treatment 0.
+#' The default is the average response value of all subjects who receive treatment 0.
+#' @param m1 The estimated response values if the subjects receive treatment 1.
+#' The default is the average response value of all subjects who receive treatment 1.
 #' @param kernel The kernel function to be used in smoothed estimation. Should be
-#' one of "normal" and "poly". See more details in the "Details" section of
-#' \code{\link{DTR.KernSmooth}}.
-#' @param phi0 The initial step size to be used in the Proximal Algorithm.
+#' one of "normal" and "poly". The default value is "normal". See more details in
+#' the "Details" section of \code{\link{DTR.KernSmooth}}.
+#' @param phi0 The initial step size to be used in the Proximal Algorithm. The default value is 1.
 #' @param gamma The multiplier of the step sizes to be used in the Proximal
-#' Algorithm. Must be 0 < gamma < 1.
-#' @param err_tol The desired accuracy in the estimation.
+#' Algorithm. Must be gamma > 1. The default value is 1.1.
+#' @param err_tol The desired accuracy in the estimation. The default value is 1e-8.
 #' @param iter_tol The maximum number of iterations in the estimation algorithm.
+#' The default value is 100.
 #' @details This function constructs confidence intervals for the optimal linear
 #' treatment regime vector by wild bootstrap procedures. The bootstrapped estimate
 #' of the smoothed robust estimator is defined as the vector \eqn{\widehat{\bm{\beta}}^*}
 #' that maximizes
-#' \deqn{n^{-1}\sum_{i=1}^n \frac{\left[A_i K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)+(1-A_i)\left\{1-K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)\right\}\right]r_iY_i}{A_i\pi(\bm{x}_i, \widehat{\bm{\xi}}) +(1-A_i)\left[1-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right]},}
-#' where \eqn{r_i}'s are i.i.d N(1,1). \cr
+#' \deqn{n^{-1}\sum_{i=1}^n \frac{\left[A_i K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)+(1-A_i)\left\{1-K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)\right\}\right]r_iY_i}{\pi(\bm{x}_i, \widehat{\bm{\xi}})K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right) + \left[1-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right]\left[1-K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)\right]}-
+#' n^{-1}\sum_{i=1}^n \frac{\left[A_i-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right]r_i \widehat{m}_1(\bm{x}_i)I\left(\bm{x}_i^T\bm{\beta}>0\right)-\left[A_i-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right] r_i\widehat{m}_0(\bm{x}_i)I\left(\bm{x}_i^T\bm{\beta}\leq 0\right)}
+#' {\pi(\bm{x}_i, \widehat{\bm{\xi}})K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right) + \left[1-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right]\left[1-K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)\right]},}
+#' with the second term as the doubly correction, where \eqn{r_i}'s are i.i.d N(1,1). \cr
 #' Let \eqn{\xi_j^{\circ(\alpha/2)}} and \eqn{\xi_j^{\circ(1-\alpha/2)}} be the \eqn{(\alpha/2)}-th
 #' and \eqn{(1-\alpha/2)}-th quantile of the bootstrap distribution of
-#' \eqn{(nh_n)^{1/2}(\widetilde{\bm{\beta}}_j^*-\widetilde{\bm{\beta}}_j)}, respectively,
+#' \eqn{(nh_n)^{1/2}(\widehat{\beta}_j^*-\widehat{\beta}_j)}, respectively,
 #' where \eqn{\alpha} is a small positive number. We can estimate \eqn{\xi_j^{\circ(\alpha/2)}}
 #' and \eqn{\xi_j^{\circ(1-\alpha/2)}} from a large number of bootstrap samples. An asymptotic
 #' \eqn{100(1-\alpha)\%} bootstrap confidence interval for \eqn{\beta_{0j}}, is given by
-#' \deqn{\left\{\widetilde{\bm{\beta}}_j-(nh_n)^{-1/2}\xi_j^{\circ(1-\alpha/2)}, \widetilde{\bm{\beta}}_j-(nh_n)^{-1/2}\xi_j^{\circ(\alpha/2)}\right\}.}
+#' \deqn{\left\{\widehat{\beta}_j-(nh_n)^{-1/2}\xi_j^{\circ(1-\alpha/2)}, \widehat{\beta}_j-(nh_n)^{-1/2}\xi_j^{\circ(\alpha/2)}\right\}.}
 #' To construct confidence intervals for the optimal value \eqn{V(\bm{\beta}_0)}, we define
-#' \deqn{V_n^*(\widetilde{\bm{\beta}}) = n^{-1}\sum_{i=1}^n \frac{\left[A_i I\left(\bm{x}_i^T\widetilde{\bm{\beta}}>0\right)+(1-A_i)I\left(\bm{x}_i^T\widetilde{\bm{\beta}}\leq 0 \right) \right]r_iY_i}{A_i\pi(\bm{x}_i, \widehat{\bm{\xi}}) +(1-A_i)\left[1-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right]},}
+#' \deqn{V_n^*(\widehat{\bm{\beta}}) = n^{-1}\sum_{i=1}^n \frac{\left[A_i I\left(\bm{x}_i^T\widehat{\bm{\beta}}>0\right)+(1-A_i)I\left(\bm{x}_i^T\widehat{\bm{\beta}}\leq 0 \right) \right]r_iY_i}{\pi(\bm{x}_i, \widehat{\bm{\xi}}) I\left(\bm{x}_i^T\widehat{\bm{\beta}}>0\right) + \left[1-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right] I\left(\bm{x}_i^T\widehat{\bm{\beta}}\leq 0\right)}-
+#' n^{-1}\sum_{i=1}^n \frac{\left[A_i-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right]r_i \widehat{m}_1(\bm{x}_i)I\left(\bm{x}_i^T\bm{\beta}>0\right)-\left[A_i-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right]r_i \widehat{m}_0(\bm{x}_i)I\left(\bm{x}_i^T\bm{\beta}\leq 0\right)}
+#' {\pi(\bm{x}_i, \widehat{\bm{\xi}})I\left(\bm{x}_i^T\bm{\beta}>0\right) + \left[1-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right]I\left(\bm{x}_i^T\bm{\beta}\leq 0\right)},}
 #' where \eqn{r_i}'s are i.i.d N(1,1). Let \eqn{d^{\circ(\alpha/2)}} and \eqn{d^{\circ(1-\alpha/2)}}
 #' be the \eqn{(\alpha/2)}-th and \eqn{(1-\alpha/2)}-th quantile of the bootstrap
 #' distribution of \eqn{n^{1/2}\{V_n^*(\widehat{\bm{\beta}})-V_n(\widehat{\bm{\beta}})\}},
@@ -387,23 +432,37 @@ DTR.KernSmooth<-function(X, y, a, prob = 0.5, kernel = "normal", phi0 = 1, gamma
 #' \emph{Resampling-based Confidence Intervals for Model-free Robust Inference
 #' on Optimal Treatment Regimes, Biometrics, 77: 465– 476}, \doi{10.1111/biom.13337}.
 #' @examples
-#' n <- 5e3; p <- 3
-#' beta <- c(0.2,1,-0.5,-0.8)
+#' n <- 1000; p <- 3
+#' beta <- c(0.2,1,-0.5,-0.8)*0.7
 #' beta1 <- c(1,-0.5,-0.5,0.5)
 #'
+#' set.seed(123)
 #' X <- matrix(rnorm(n*p),n)
-#' a <- rbinom(n,1,0.5)
+#' a <- rbinom(n,1,0.6)
 #' mean1 <- exp(cbind(1,X) %*% beta1)
 #' mean2 <- 8/(1 + exp(-cbind(1,X) %*% beta)) - 4
 #' y <- mean1 + a * mean2 + rnorm(n)
 #'
-#' boots_smooth_model <- DTR.Boots.KernSmooth(X, y, a)
-#' boots_smooth_model$Beta_CI
-#' boots_smooth_model$value_CI
+#' boots_smooth_model_ci <- DTR.Boots.KernSmooth(X, y, a, prob = 0.6)
+#' boots_smooth_model_ci$Beta_CI
+#' boots_smooth_model_ci$value_CI
+#'
+#' boots_smooth_model_ic <- DTR.Boots.KernSmooth(X, y, a, prob = 0.4, m0 = mean1, m1 = mean1 + mean2)
+#' boots_smooth_model_ic$Beta_CI
+#' boots_smooth_model_ic$value_CI
+#'
+#' boots_smooth_model_cc <- DTR.Boots.KernSmooth(X, y, a, prob = 0.6, m0 = mean1, m1 = mean1 + mean2)
+#' boots_smooth_model_cc$Beta_CI
+#' boots_smooth_model_cc$value_CI
+#'
+#' boots_smooth_model_ii <- DTR.Boots.KernSmooth(X, y, a, prob = 0.4)
+#' boots_smooth_model_ii$Beta_CI
+#' boots_smooth_model_ii$value_CI
 #'
 
-DTR.Boots.KernSmooth<-function(X, y, a, prob = 0.5, B = 500, alpha = 0.05, kernel = "normal",
-                               phi0 = 1, gamma = 2, err_tol = 1e-8, iter_tol = 100){
+DTR.Boots.KernSmooth<-function(X, y, a, prob = 0.5, B = 500, alpha = 0.05,
+                               m0 = mean(y[a==0]), m1 = mean(y[a==1]), kernel = "normal",
+                               phi0 = 1, gamma = 1.1, err_tol = 1e-8, iter_tol = 100){
   if(missing(X)|missing(y)|missing(a)){
     stop("Please supply the data (X, y, a) to estimate the optimal value")
   }
@@ -415,7 +474,9 @@ DTR.Boots.KernSmooth<-function(X, y, a, prob = 0.5, B = 500, alpha = 0.05, kerne
   }
   nvars <- dim(X)[2]
   nobs <- dim(X)[1]
-  initial <- rep(0,nvars+1)
+  model_init <- lm(y~X*a)
+  initial <- coef(model_init)[0:nvars+2+nvars]
+  initial <- initial/abs(initial[2])
 
   if(is.null(prob)){
     prob_model <- glm(a ~ X, family = binomial)
@@ -427,8 +488,10 @@ DTR.Boots.KernSmooth<-function(X, y, a, prob = 0.5, B = 500, alpha = 0.05, kerne
     prob <- rep(prob,length=nobs)
   }
   weights <- matrix(rnorm(nobs*B,1,1),nobs,B)
-  res <- Boots_C(cbind(1,X), y, a, initial, prob, kernel, weights,
-                 alpha, phi0, gamma, err_tol, iter_tol)
+  m1 <- rep(m1,length = length(y))
+  m0 <- rep(m0,length = length(y))
+  res <- Boots_C(cbind(1,X), y, a, initial, prob, kernel, m1, m0, weights, alpha,
+                 phi0, gamma, err_tol, iter_tol)
   attr(res, "class") <- "DTR.Boots.KernSmooth"
   return(res)
 }

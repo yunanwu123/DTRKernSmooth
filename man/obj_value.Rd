@@ -4,7 +4,16 @@
 \alias{obj_value}
 \title{Estimate the average response value of the input data given a treatment regime}
 \usage{
-obj_value(X, y, a, object, beta, prob = 0.5)
+obj_value(
+  X,
+  y,
+  a,
+  object,
+  beta,
+  prob = 0.5,
+  m0 = mean(y[a == 0]),
+  m1 = mean(y[a == 1])
+)
 }
 \arguments{
 \item{X}{Input matrix, of dimension n_obs x n_vars; each row is an observation vector.}
@@ -20,6 +29,12 @@ the treatment recommended by the optimal regime.}
 
 \item{prob}{The propensity score for n_obs subjects, i.e., P(a=1|X). If \code{NULL},
 it would be estimated by logistic regression a~X.}
+
+\item{m0}{The estimated response values if the subjects receive treatment 0.
+The default is the average response value of all subjects who receive treatment 0.}
+
+\item{m1}{The estimated response values if the subjects receive treatment 1.
+The default is the average response value of all subjects who receive treatment 1.}
 }
 \value{
 The estimated average response value if all n_obs subjects follows the
@@ -29,7 +44,7 @@ treatment regime.
 \description{
 This function estimates the average response value of the input
 data given a 'DTR.KernSmooth' / 'DTR.Boots.KernSmooth' model object or an
-estimated optimal treatment regime vector
+estimated optimal treatment regime vector, with doubly robust correction
 }
 \details{
 \code{object} and \code{beta} cannot be both missing. If the input
@@ -37,24 +52,26 @@ data (X, y, a) is missing but \code{object} is provided, the function will
 return the optimal value of the input object.
 }
 \examples{
-n <- 5e3; p <- 3
-beta <- c(0.2,1,-0.5,-0.8)
+n <- 1000; p <- 3
+beta <- c(0.2,1,-0.5,-0.8)*0.7
 beta1 <- c(1,-0.5,-0.5,0.5)
 
+set.seed(123)
 X <- matrix(rnorm(n*p),n)
-a <- rbinom(n,1,0.5)
+a <- rbinom(n,1,0.6)
 mean1 <- exp(cbind(1,X) \%*\% beta1)
 mean2 <- 8/(1 + exp(-cbind(1,X) \%*\% beta)) - 4
 y <- mean1 + a * mean2 + rnorm(n)
 
-smooth_model <- DTR.KernSmooth(X, y, a)
-boots_smooth_model <- DTR.Boots.KernSmooth(X, y, a)
+smooth_model <- DTR.KernSmooth(X, y, a, prob = 0.6)
+boots_smooth_model <- DTR.Boots.KernSmooth(X, y, a, prob = 0.6)
 
-newX <- matrix(rnorm(n*p),n)
-newa <- rbinom(n,1,0.5)
+newn <- 1e4
+newX <- matrix(rnorm(newn*p),newn)
+newa <- rbinom(newn,1,0.5)
 newmean1 <- exp(cbind(1,newX) \%*\% beta1)
 newmean2 <- 8/(1 + exp(-cbind(1,newX) \%*\% beta)) - 4
-newy <- newmean1 + newa * newmean2 + rnorm(n)
+newy <- newmean1 + newa * newmean2 + rnorm(newn)
 
 obj_value(newX, newy, newa, smooth_model)
 obj_value(newX, newy, newa, boots_smooth_model)

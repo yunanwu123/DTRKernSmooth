@@ -64,25 +64,31 @@ Eigen::VectorXd kernel(const Eigen::VectorXd v, const int out) {
   }
   return a;
 }
-
-Eigen::VectorXd obq(Eigen::MatrixXd X, Eigen::VectorXd y, Eigen::VectorXd a,
-                    Eigen::VectorXd bet, const int out, const double phi,
-                    const double err_tol){
+ 
+Eigen::VectorXd obq(Eigen::MatrixXd X, Eigen::VectorXd y1, Eigen::VectorXd y2,
+                    Eigen::VectorXd prob, Eigen::VectorXd bet, const int out, 
+                    const double phi, const double err_tol){
   int nData = X.rows();
   Eigen::VectorXd z = X*bet;
   double exp_ind = out == 1?-0.2:-1.0/9.0;
   
   double h = 0.9*pow(nData,exp_ind)*max(min(eigenSD(z),eigenIQR(z)/1.34),err_tol);
-  Eigen::VectorXd g = kernel(z/h,out);
-  Eigen::VectorXd weight = y.array()*g.array()*(1.0-2.0*a.array())/h;
-  Eigen::VectorXd eta = bet-X.transpose()*weight/nData/phi;
+  Eigen::VectorXd g1 = kernel(z/h,out);
+  Eigen::VectorXd g2 = kernel(z/h,out+1); 
+  
+  Eigen::VectorXd weight1 = y1.array()*g2.array() + y2.array(); 
+  Eigen::VectorXd weight2 = y1.array()*g1.array()/h;
+  Eigen::VectorXd weight3 = (2*prob.array()-1)*g2.array() + 1 - prob.array();
+  Eigen::VectorXd weight4 = (2*prob.array()-1)*g1.array()/h;
+  Eigen::VectorXd weight = (weight2.array()*weight3.array()-weight1.array()*weight4.array())/weight3.array().square();
+  Eigen::VectorXd eta = bet + 0.5*X.transpose()*weight/nData/phi; 
   return eta;
 }
 
-bool FPhi(Eigen::MatrixXd X, Eigen::VectorXd y, Eigen::VectorXd a,
-          Eigen::VectorXd bet0, Eigen::VectorXd bet1, const char* kn,
-          const double phi, const double err_tol){
-  int nData = y.size();
+bool FPhi(Eigen::MatrixXd X, Eigen::VectorXd y1, Eigen::VectorXd y2, 
+          Eigen::VectorXd prob, Eigen::VectorXd bet0, Eigen::VectorXd bet1, 
+          const char* kn, const double phi, const double err_tol){
+  int nData = y1.size();
   Eigen::VectorXd z0 = X*bet0;
   Eigen::VectorXd z1 = X*bet1;
   double exp_ind;
@@ -99,31 +105,32 @@ bool FPhi(Eigen::MatrixXd X, Eigen::VectorXd y, Eigen::VectorXd a,
   double h0 = 0.9*pow(nData,exp_ind)*max(min(eigenSD(z0),eigenIQR(z0)/1.34),err_tol);
   double h1 = 0.9*pow(nData,exp_ind)*max(min(eigenSD(z1),eigenIQR(z1)/1.34),err_tol);
   Eigen::VectorXd g0 = kernel(z0/h0,out+1);
-  Eigen::VectorXd g1 = kernel(z1/h1,out+1);
-  Eigen::VectorXd g2 = kernel(z1/h1,out);
-  g2 = g2.array()*(z0.array()-z1.array())/h1;
+  Eigen::VectorXd g1 = kernel(z1/h1,out+1); 
   
-  double f0 = (y.array()*(1.0-2.0*a.array())*(g0.array()-g1.array()-g2.array())).mean();
-  double f1 = 0.5*phi*(bet0-bet1).squaredNorm();
+  Eigen::VectorXd value1 = (y1.array()*g0.array() + y2.array())/((2*prob.array()-1)*g0.array() + 1 - prob.array()); 
+  Eigen::VectorXd value2 = (y1.array()*g1.array() + y2.array())/((2*prob.array()-1)*g1.array() + 1 - prob.array());
+  
+  double f0 = (value1.array()-value2.array()).mean();
+  double f1 = phi*(bet0-bet1).squaredNorm();
   
   return f0>f1;
 }
 
 
-List LAMM(Eigen::MatrixXd X, Eigen::VectorXd y, Eigen::VectorXd a,
-          Eigen::VectorXd bet, const char* kn, const double phi0,
+List LAMM(Eigen::MatrixXd X, Eigen::VectorXd y1, Eigen::VectorXd y2, 
+          Eigen::VectorXd prob, Eigen::VectorXd bet, const char* kn, const double phi0,
           double phi, const double gamma, const double err_tol){
   phi = max(phi0, phi/gamma);
   int out = strcmp(kn, "normal")?1:3;
-  Eigen::VectorXd bet0 = obq(X,y,a,bet,out,phi,err_tol);
-  while(FPhi(X,y,a,bet0,bet,kn,phi,err_tol)){
+  Eigen::VectorXd bet0 = obq(X,y1,y2,prob,bet,out,phi,err_tol);
+  while(FPhi(X,y1,y2,prob,bet0,bet,kn,phi,err_tol)){
     bet = bet0;
     phi = phi*gamma;
-    bet0 = obq(X,y,a,bet,out,phi,err_tol);
+    bet0 = obq(X,y1,y2,prob,bet,out,phi,err_tol);
   }
   
   List output;
-  output["bet"] = bet;
+  output["bet"] = bet0;
   output["phi"] = phi;
   return output;
 }
@@ -131,36 +138,40 @@ List LAMM(Eigen::MatrixXd X, Eigen::VectorXd y, Eigen::VectorXd a,
 
 // [[Rcpp::export]]
 double obj_value_C(Eigen::MatrixXd X, Eigen::VectorXd y, Eigen::VectorXd a,
+                   const Eigen::VectorXd & m1, const Eigen::VectorXd & m0,
                    const Eigen::VectorXd & eta,const Eigen::VectorXd & prob) {
   Eigen::VectorXd g = Eigen::VectorXd::Zero(y.size());
-  g = ((X*eta).array()>0).select(1,g);
-  Eigen::VectorXd c = a.array()*g.array()+(1-a.array())*(1-g.array());
+  g = ((X*eta).array()>0).select(1,g); 
+  Eigen::VectorXd weighted_y1 = y.array()*(2*a.array()-1)-(a-prob).array()*(m1+m0).array();
+  Eigen::VectorXd weighted_y2 = y.array()*(1-a.array())+(a-prob).array()*m0.array();
+  Eigen::VectorXd c =  weighted_y1.array()*g.array() + weighted_y2.array();
   Eigen::VectorXd weights = a.array()*prob.array()+(1-a.array())*(1-prob.array());
-  double value = (c.array()*y.array()/weights.array()).mean();
+  double value = (c.array()/weights.array()).mean();
   return value;
 }
 
 // [[Rcpp::export]]
 List Smooth_C(Eigen::MatrixXd X, Eigen::VectorXd y, Eigen::VectorXd a,
               Eigen::VectorXd initial, const Eigen::VectorXd & prob, const char* kn,
-              double phi, const double gamma, const double err_tol, const int iter_tol){
+              const Eigen::VectorXd & m1, const Eigen::VectorXd & m0, double phi, 
+              const double gamma, const double err_tol, const int iter_tol){
   
-  Eigen::VectorXd weights = a.array()*prob.array()+(1-a.array())*(1-prob.array());
-  Eigen::VectorXd weighted_y = (y.array()-y.mean())/weights.array();
-  List L = LAMM(X,weighted_y,a,initial,kn,phi,phi,gamma,err_tol);
+  Eigen::VectorXd weighted_y1 = y.array()*(2*a.array()-1)-(a-prob).array()*(m1+m0).array();
+  Eigen::VectorXd weighted_y2 = y.array()*(1-a.array())+(a-prob).array()*m0.array();//(y.array()-y.mean())/weights.array();
+  List L = LAMM(X,weighted_y1,weighted_y2,prob,initial,kn,phi,phi,gamma,err_tol);
   
   Eigen::VectorXd bet0 = L["bet"];
   double phi1 = L["phi"];
   int i = 1;
   while(((initial-bet0).squaredNorm()>err_tol)&(i<=iter_tol)){
     initial = bet0;
-    L = LAMM(X,y,a,initial,kn,phi,phi1,gamma,err_tol);
+    L = LAMM(X,weighted_y1,weighted_y2,prob,initial,kn,phi,phi1,gamma,err_tol);
     bet0 = L["bet"];
     phi1 = L["phi"];
     i += 1;
   }
   bet0 = bet0/abs(bet0(1));
-  double value = obj_value_C(X,y,a,bet0,prob);
+  double value = obj_value_C(X,y,a,m0,m1,bet0,prob);
   
   Eigen::VectorXd opt_trt = Eigen::VectorXd::Zero(y.size());
   opt_trt = ((X*bet0).array()>0).select(1,opt_trt);
@@ -172,6 +183,8 @@ List Smooth_C(Eigen::MatrixXd X, Eigen::VectorXd y, Eigen::VectorXd a,
   output["y"] = y;
   output["a"] = a;
   output["prob"] = prob;
+  output["m0"] = m0;
+  output["m1"] = m1;
   output["kernel"] = kn;
   output["beta_smooth"] = bet0;
   output["opt_treatment"] = opt_trt;
@@ -184,24 +197,27 @@ List Smooth_C(Eigen::MatrixXd X, Eigen::VectorXd y, Eigen::VectorXd a,
 // [[Rcpp::export]]
 List Boots_C(Eigen::MatrixXd X, Eigen::VectorXd y, Eigen::VectorXd a,
              Eigen::VectorXd initial, const Eigen::VectorXd & prob, const char* kn,
+             const Eigen::VectorXd & m1, const Eigen::VectorXd & m0,
              Eigen::MatrixXd weights, const double alpha, double phi,
              const double gamma, const double err_tol, const int iter_tol){
-  List smooth_est = Smooth_C(X,y,a,initial,prob,kn,phi,gamma,err_tol,iter_tol);
+  List smooth_est = Smooth_C(X,y,a,initial,prob,kn,m1,m0,phi,gamma,err_tol,iter_tol);
   Eigen::VectorXd beta_est = smooth_est["beta_smooth"];
   double beta_value = smooth_est["value_smooth"];
   
   const int B = weights.cols();
   Eigen::VectorXd value_boots(B);
   Eigen::MatrixXd Beta_boots(B,X.cols());
-  Eigen::VectorXd weights_col_i, weighted_y, beta_boots;
+  Eigen::VectorXd weights_col_i, weighted_y, weighted_m0, weighted_m1, beta_boots;
   List smooth_boots, output;
   for(int i=0; i<B; i++){
     weights_col_i = weights.col(i);
     weighted_y = y.array()*weights_col_i.array();
-    smooth_boots = Smooth_C(X,weighted_y,a,initial,prob,kn,phi,gamma,err_tol,iter_tol);
+    weighted_m0 = m0.array()*weights_col_i.array();
+    weighted_m1 = m1.array()*weights_col_i.array();
+    smooth_boots = Smooth_C(X,weighted_y,a,initial,prob,kn,weighted_m1,weighted_m0,phi,gamma,err_tol,iter_tol);
     beta_boots = smooth_boots["beta_smooth"] ;
     Beta_boots.row(i) = beta_boots ;
-    value_boots(i) =  obj_value_C(X,weighted_y,a,beta_est,prob);
+    value_boots(i) =  obj_value_C(X,weighted_y,a,weighted_m1,weighted_m0,beta_est,prob);
   }
   Eigen::VectorXd perc(2);
   perc << alpha*0.5,1.0-alpha*0.5;
