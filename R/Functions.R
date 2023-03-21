@@ -248,7 +248,7 @@ predict.DTR.Boots.KernSmooth<-function(object, newX, ...){
 #' n^{-1}\sum_{i=1}^n \frac{\left[A_i-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right] \widehat{m}_1(\bm{x}_i)I\left(\bm{x}_i^T\bm{\beta}>0\right)-\left[A_i-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right] \widehat{m}_0(\bm{x}_i)I\left(\bm{x}_i^T\bm{\beta}\leq 0\right)}
 #' {\pi(\bm{x}_i, \widehat{\bm{\xi}})I\left(\bm{x}_i^T\bm{\beta}>0\right) + \left[1-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right]I\left(\bm{x}_i^T\bm{\beta}\leq 0\right)},}
 #' with the second term as the doubly correction.
-#' For the identifability, we normalize the estimator such that the second element
+#' For the identifiability, we normalize the estimator such that the second element
 #' has magnitude 1, i.e., \eqn{|\widehat{\beta}_2|=1}.\cr
 #' To alleviates the computational challenge due to the nonsmooth indicator function,
 #' and derive asymptotic distribution of the estimators, we consider to use a smoothed
@@ -263,7 +263,7 @@ predict.DTR.Boots.KernSmooth<-function(object, newX, ...){
 #'  \item{"normal" }{ The c.d.f of N(0,1) distribution. The bandwidth is set as \eqn{h_n=0.9n^{-0.2} \min\{std (\bm{x}_i^T\bm{\beta}),IQR(\bm{x}_i^T\bm{\beta})/1.34\}}.}
 #'  \item{"poly" }{   A polynomial function \eqn{K(v) =\left[0.5 + \frac{105}{64}\{\frac{v}{5}-\frac{5}{3}(\frac{v}{5})^3 +\frac{7}{5}(\frac{v}{5})^5 - \frac{3}{7}(\frac{v}{5})^7\}\right]I( -5\leq v \leq 5)+I(v>5)}. The bandwidth is set as \eqn{h_n=0.9n^{-1/9} \min\{std (\bm{x}_i^T\bm{\beta}),IQR(\bm{x}_i^T\bm{\beta})/1.34\}}.}
 #'  }
-#' \cr
+#'
 #' To solve the non-convexity problem of the optimization, we employ a proximal
 #' gradient descent algorithm for estimation. See more details in the reference.
 #' @return An object of class "DTR.KernSmooth", which is a list containing at
