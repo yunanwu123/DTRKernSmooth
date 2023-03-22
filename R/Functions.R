@@ -40,7 +40,7 @@
 #' y <- mean1 + a * mean2 + rnorm(n)
 #'
 #' smooth_model <- DTR.KernSmooth(X, y, a, prob = 0.6)
-#' boots_smooth_model <- DTR.Boots.KernSmooth(X, y, a, prob = 0.6)
+#' boots_smooth_model <- DTR.Boots.KernSmooth(X, y, a, prob = 0.6, B = 100)
 #'
 #' newn <- 1e4
 #' newX <- matrix(rnorm(newn*p),newn)
@@ -192,7 +192,7 @@ predict.DTR.KernSmooth<-function(object, newX, ...){
 #' mean2 <- 8/(1 + exp(-cbind(1,X) %*% beta)) - 4
 #' y <- mean1 + a * mean2 + rnorm(n)
 #'
-#' boots_smooth_model <- DTR.Boots.KernSmooth(X, y, a, prob = 0.6)
+#' boots_smooth_model <- DTR.Boots.KernSmooth(X, y, a, prob = 0.6, B = 100)
 #' newn <- 10
 #' newX <- matrix(rnorm(newn*p),newn)
 #' predict(boots_smooth_model, newX)
@@ -263,7 +263,6 @@ predict.DTR.Boots.KernSmooth<-function(object, newX, ...){
 #'  \item{"normal" }{ The c.d.f of N(0,1) distribution. The bandwidth is set as \eqn{h_n=0.9n^{-0.2} \min\{std (\bm{x}_i^T\bm{\beta}),IQR(\bm{x}_i^T\bm{\beta})/1.34\}}.}
 #'  \item{"poly" }{   A polynomial function \eqn{K(v) =\left[0.5 + \frac{105}{64}\{\frac{v}{5}-\frac{5}{3}(\frac{v}{5})^3 +\frac{7}{5}(\frac{v}{5})^5 - \frac{3}{7}(\frac{v}{5})^7\}\right]I( -5\leq v \leq 5)+I(v>5)}. The bandwidth is set as \eqn{h_n=0.9n^{-1/9} \min\{std (\bm{x}_i^T\bm{\beta}),IQR(\bm{x}_i^T\bm{\beta})/1.34\}}.}
 #'  }
-#'
 #' To solve the non-convexity problem of the optimization, we employ a proximal
 #' gradient descent algorithm for estimation. See more details in the reference.
 #' @return An object of class "DTR.KernSmooth", which is a list containing at
@@ -443,21 +442,25 @@ DTR.KernSmooth<-function(X, y, a, prob = 0.5, m0 = mean(y[a==0]), m1 = mean(y[a=
 #' mean2 <- 8/(1 + exp(-cbind(1,X) %*% beta)) - 4
 #' y <- mean1 + a * mean2 + rnorm(n)
 #'
-#' boots_smooth_model_ci <- DTR.Boots.KernSmooth(X, y, a, prob = 0.6)
+#' boots_smooth_model_ci <- DTR.Boots.KernSmooth(X, y, a, prob = 0.6, B = 100)
 #' boots_smooth_model_ci$Beta_CI
 #' boots_smooth_model_ci$value_CI
 #'
-#' boots_smooth_model_ic <- DTR.Boots.KernSmooth(X, y, a, prob = 0.4, m0 = mean1, m1 = mean1 + mean2)
+#'\dontrun{
+#' boots_smooth_model_ic <- DTR.Boots.KernSmooth(X, y, a, prob = 0.4, B = 100,
+#'                                               m0 = mean1, m1 = mean1 + mean2)
 #' boots_smooth_model_ic$Beta_CI
 #' boots_smooth_model_ic$value_CI
 #'
-#' boots_smooth_model_cc <- DTR.Boots.KernSmooth(X, y, a, prob = 0.6, m0 = mean1, m1 = mean1 + mean2)
+#' boots_smooth_model_cc <- DTR.Boots.KernSmooth(X, y, a, prob = 0.6, B = 100,
+#'                                               m0 = mean1, m1 = mean1 + mean2)
 #' boots_smooth_model_cc$Beta_CI
 #' boots_smooth_model_cc$value_CI
 #'
-#' boots_smooth_model_ii <- DTR.Boots.KernSmooth(X, y, a, prob = 0.4)
+#' boots_smooth_model_ii <- DTR.Boots.KernSmooth(X, y, a, prob = 0.4, B = 100)
 #' boots_smooth_model_ii$Beta_CI
 #' boots_smooth_model_ii$value_CI
+#'}
 #'
 
 DTR.Boots.KernSmooth<-function(X, y, a, prob = 0.5, B = 500, alpha = 0.05,

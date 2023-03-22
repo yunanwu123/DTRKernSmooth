@@ -64,7 +64,7 @@ mean2 <- 8/(1 + exp(-cbind(1,X) \%*\% beta)) - 4
 y <- mean1 + a * mean2 + rnorm(n)
 
 smooth_model <- DTR.KernSmooth(X, y, a, prob = 0.6)
-boots_smooth_model <- DTR.Boots.KernSmooth(X, y, a, prob = 0.6)
+boots_smooth_model <- DTR.Boots.KernSmooth(X, y, a, prob = 0.6, B = 100)
 
 newn <- 1e4
 newX <- matrix(rnorm(newn*p),newn)

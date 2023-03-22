@@ -36,7 +36,7 @@ mean1 <- exp(cbind(1,X) \%*\% beta1)
 mean2 <- 8/(1 + exp(-cbind(1,X) \%*\% beta)) - 4
 y <- mean1 + a * mean2 + rnorm(n)
 
-boots_smooth_model <- DTR.Boots.KernSmooth(X, y, a, prob = 0.6)
+boots_smooth_model <- DTR.Boots.KernSmooth(X, y, a, prob = 0.6, B = 100)
 newn <- 10
 newX <- matrix(rnorm(newn*p),newn)
 predict(boots_smooth_model, newX)

@@ -102,7 +102,6 @@ In this function, we provide two options for the smoothed kernel functions:
  \item{"normal" }{ The c.d.f of N(0,1) distribution. The bandwidth is set as \eqn{h_n=0.9n^{-0.2} \min\{std (\bm{x}_i^T\bm{\beta}),IQR(\bm{x}_i^T\bm{\beta})/1.34\}}.}
  \item{"poly" }{   A polynomial function \eqn{K(v) =\left[0.5 + \frac{105}{64}\{\frac{v}{5}-\frac{5}{3}(\frac{v}{5})^3 +\frac{7}{5}(\frac{v}{5})^5 - \frac{3}{7}(\frac{v}{5})^7\}\right]I( -5\leq v \leq 5)+I(v>5)}. The bandwidth is set as \eqn{h_n=0.9n^{-1/9} \min\{std (\bm{x}_i^T\bm{\beta}),IQR(\bm{x}_i^T\bm{\beta})/1.34\}}.}
  }
-
 To solve the non-convexity problem of the optimization, we employ a proximal
 gradient descent algorithm for estimation. See more details in the reference.
 }

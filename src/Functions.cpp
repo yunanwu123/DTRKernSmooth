@@ -65,7 +65,7 @@ Eigen::VectorXd kernel(const Eigen::VectorXd v, const int out) {
   return a;
 }
  
-Eigen::VectorXd obq(Eigen::MatrixXd X, Eigen::VectorXd y1, Eigen::VectorXd y2,
+List obq(Eigen::MatrixXd X, Eigen::VectorXd y1, Eigen::VectorXd y2,
                     Eigen::VectorXd prob, Eigen::VectorXd bet, const int out, 
                     const double phi, const double err_tol){
   int nData = X.rows();
@@ -77,60 +77,41 @@ Eigen::VectorXd obq(Eigen::MatrixXd X, Eigen::VectorXd y1, Eigen::VectorXd y2,
   Eigen::VectorXd g2 = kernel(z/h,out+1); 
   
   Eigen::VectorXd weight1 = y1.array()*g2.array() + y2.array(); 
-  Eigen::VectorXd weight2 = y1.array()*g1.array()/h;
+  Eigen::VectorXd weight2 = y1.array()*g1.array();
   Eigen::VectorXd weight3 = (2*prob.array()-1)*g2.array() + 1 - prob.array();
-  Eigen::VectorXd weight4 = (2*prob.array()-1)*g1.array()/h;
-  Eigen::VectorXd weight = (weight2.array()*weight3.array()-weight1.array()*weight4.array())/weight3.array().square();
-  Eigen::VectorXd eta = bet + 0.5*X.transpose()*weight/nData/phi; 
-  return eta;
+  Eigen::VectorXd weight4 = (2*prob.array()-1)*g1.array();
+  Eigen::VectorXd value = weight1.array()/weight3.array();
+  Eigen::VectorXd weight = weight2.array()/weight3.array()- value.array()*weight4.array()/weight3.array();
+  Eigen::VectorXd eta = bet + 0.5*X.transpose()*weight/nData/phi/h; 
+  
+  List output;
+  output["eta"] = eta;
+  output["value"] = value.mean();
+  return output;
 }
-
-bool FPhi(Eigen::MatrixXd X, Eigen::VectorXd y1, Eigen::VectorXd y2, 
-          Eigen::VectorXd prob, Eigen::VectorXd bet0, Eigen::VectorXd bet1, 
-          const char* kn, const double phi, const double err_tol){
-  int nData = y1.size();
-  Eigen::VectorXd z0 = X*bet0;
-  Eigen::VectorXd z1 = X*bet1;
-  double exp_ind;
-  int out;
-  
-  if(strcmp(kn, "normal")){
-    exp_ind = -0.2;
-    out = 1;
-  } else{
-    exp_ind = -1.0/9.0;
-    out = 3;
-  }
-  
-  double h0 = 0.9*pow(nData,exp_ind)*max(min(eigenSD(z0),eigenIQR(z0)/1.34),err_tol);
-  double h1 = 0.9*pow(nData,exp_ind)*max(min(eigenSD(z1),eigenIQR(z1)/1.34),err_tol);
-  Eigen::VectorXd g0 = kernel(z0/h0,out+1);
-  Eigen::VectorXd g1 = kernel(z1/h1,out+1); 
-  
-  Eigen::VectorXd value1 = (y1.array()*g0.array() + y2.array())/((2*prob.array()-1)*g0.array() + 1 - prob.array()); 
-  Eigen::VectorXd value2 = (y1.array()*g1.array() + y2.array())/((2*prob.array()-1)*g1.array() + 1 - prob.array());
-  
-  double f0 = (value1.array()-value2.array()).mean();
-  double f1 = phi*(bet0-bet1).squaredNorm();
-  
-  return f0>f1;
-}
-
-
+ 
 List LAMM(Eigen::MatrixXd X, Eigen::VectorXd y1, Eigen::VectorXd y2, 
           Eigen::VectorXd prob, Eigen::VectorXd bet, const char* kn, const double phi0,
           double phi, const double gamma, const double err_tol){
   phi = max(phi0, phi/gamma);
   int out = strcmp(kn, "normal")?1:3;
-  Eigen::VectorXd bet0 = obq(X,y1,y2,prob,bet,out,phi,err_tol);
-  while(FPhi(X,y1,y2,prob,bet0,bet,kn,phi,err_tol)){
+  List output0 = obq(X,y1,y2,prob,bet,out,phi,err_tol);
+  Eigen::VectorXd bet0 = output0["eta"];
+  double value0 = output0["value"];
+  double value = value0 - 1;
+  double delta = 0;
+  while(value0 - value > phi*delta){ 
+    delta = (bet0-bet).squaredNorm();
+    value = value0;
     bet = bet0;
     phi = phi*gamma;
-    bet0 = obq(X,y1,y2,prob,bet,out,phi,err_tol);
+    output0 = obq(X,y1,y2,prob,bet,out,phi,err_tol);
+    bet0 = output0["eta"];
+    value0 = output0["value"];
   }
   
   List output;
-  output["bet"] = bet0;
+  output["bet"] = bet;
   output["phi"] = phi;
   return output;
 }

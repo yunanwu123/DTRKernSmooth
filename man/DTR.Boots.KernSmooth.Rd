@@ -117,21 +117,25 @@ mean1 <- exp(cbind(1,X) \%*\% beta1)
 mean2 <- 8/(1 + exp(-cbind(1,X) \%*\% beta)) - 4
 y <- mean1 + a * mean2 + rnorm(n)
 
-boots_smooth_model_ci <- DTR.Boots.KernSmooth(X, y, a, prob = 0.6)
+boots_smooth_model_ci <- DTR.Boots.KernSmooth(X, y, a, prob = 0.6, B = 100)
 boots_smooth_model_ci$Beta_CI
 boots_smooth_model_ci$value_CI
 
-boots_smooth_model_ic <- DTR.Boots.KernSmooth(X, y, a, prob = 0.4, m0 = mean1, m1 = mean1 + mean2)
+\dontrun{
+boots_smooth_model_ic <- DTR.Boots.KernSmooth(X, y, a, prob = 0.4, B = 100,
+                                              m0 = mean1, m1 = mean1 + mean2)
 boots_smooth_model_ic$Beta_CI
 boots_smooth_model_ic$value_CI
 
-boots_smooth_model_cc <- DTR.Boots.KernSmooth(X, y, a, prob = 0.6, m0 = mean1, m1 = mean1 + mean2)
+boots_smooth_model_cc <- DTR.Boots.KernSmooth(X, y, a, prob = 0.6, B = 100,
+                                              m0 = mean1, m1 = mean1 + mean2)
 boots_smooth_model_cc$Beta_CI
 boots_smooth_model_cc$value_CI
 
-boots_smooth_model_ii <- DTR.Boots.KernSmooth(X, y, a, prob = 0.4)
+boots_smooth_model_ii <- DTR.Boots.KernSmooth(X, y, a, prob = 0.4, B = 100)
 boots_smooth_model_ii$Beta_CI
 boots_smooth_model_ii$value_CI
+}
 
 }
 \references{
