@@ -5,11 +5,11 @@ obj_value_C <- function(X, y, a, m1, m0, eta, prob) {
     .Call(`_DTRKernSmooth_obj_value_C`, X, y, a, m1, m0, eta, prob)
 }
 
-Smooth_C <- function(X, y, a, initial, prob, kn, m1, m0, phi, gamma, err_tol, iter_tol) {
-    .Call(`_DTRKernSmooth_Smooth_C`, X, y, a, initial, prob, kn, m1, m0, phi, gamma, err_tol, iter_tol)
+Smooth_C <- function(X, y, a, intercept, initial, prob, kn, m1, m0, phi, gamma, err_tol, iter_tol) {
+    .Call(`_DTRKernSmooth_Smooth_C`, X, y, a, intercept, initial, prob, kn, m1, m0, phi, gamma, err_tol, iter_tol)
 }
 
-Boots_C <- function(X, y, a, initial, prob, kn, m1, m0, weights, alpha, phi, gamma, err_tol, iter_tol) {
-    .Call(`_DTRKernSmooth_Boots_C`, X, y, a, initial, prob, kn, m1, m0, weights, alpha, phi, gamma, err_tol, iter_tol)
+Boots_C <- function(X, y, a, intercept, initial, prob, kn, m1, m0, weights, alpha, phi, gamma, err_tol, iter_tol) {
+    .Call(`_DTRKernSmooth_Boots_C`, X, y, a, intercept, initial, prob, kn, m1, m0, weights, alpha, phi, gamma, err_tol, iter_tol)
 }
 

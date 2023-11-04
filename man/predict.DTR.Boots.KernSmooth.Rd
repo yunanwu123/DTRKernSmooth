@@ -25,18 +25,18 @@ from a fitted DTR.Boots.KernSmooth model.
 All the predicted optimal treatments are labeled as \{0,1\}.
 }
 \examples{
-n <- 1000; p <- 3
+n <- 500; p <- 3
 beta <- c(0.2,1,-0.5,-0.8)*0.7
 beta1 <- c(1,-0.5,-0.5,0.5)
 
-set.seed(123)
+set.seed(12345)
 X <- matrix(rnorm(n*p),n)
-a <- rbinom(n,1,0.6)
+a <- rbinom(n,1,0.7)
 mean1 <- exp(cbind(1,X) \%*\% beta1)
 mean2 <- 8/(1 + exp(-cbind(1,X) \%*\% beta)) - 4
 y <- mean1 + a * mean2 + rnorm(n)
 
-boots_smooth_model <- DTR.Boots.KernSmooth(X, y, a, prob = 0.6, B = 100)
+boots_smooth_model <- DTR.Boots.KernSmooth(X, y, a, prob = 0.3 + 0.4*a, B = 100)
 newn <- 10
 newX <- matrix(rnorm(newn*p),newn)
 predict(boots_smooth_model, newX)

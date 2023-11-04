@@ -8,6 +8,7 @@ DTR.Boots.KernSmooth(
   X,
   y,
   a,
+  intercept = TRUE,
   prob = 0.5,
   B = 500,
   alpha = 0.05,
@@ -15,9 +16,9 @@ DTR.Boots.KernSmooth(
   m1 = mean(y[a == 1]),
   kernel = "normal",
   phi0 = 1,
-  gamma = 1.1,
-  err_tol = 1e-08,
-  iter_tol = 100
+  gamma = 2,
+  err_tol = 1e-04,
+  iter_tol = 200
 )
 }
 \arguments{
@@ -27,6 +28,9 @@ DTR.Boots.KernSmooth(
 the treatment recommended by the optimal regime.}
 
 \item{a}{Received treatments for n_obs subjects. Must be bivariate, and labeled as \{0,1\}.}
+
+\item{intercept}{Logical. \code{TRUE} (default) if the intercept is included in estimating
+the optimal treatment regime and \code{FALSE} if not.}
 
 \item{prob}{The propensity score for n_obs subjects, i.e., P(a=1|X). If \code{NULL},
 it would be estimated by logistic regression a~X.}
@@ -43,18 +47,18 @@ The default is the average response value of all subjects who receive treatment 
 The default is the average response value of all subjects who receive treatment 1.}
 
 \item{kernel}{The kernel function to be used in smoothed estimation. Should be
-one of "normal" and "poly". The default value is "normal". See more details in
+one of "normal", "poly1" and "poly2". The default value is "normal". See more details in
 the "Details" section of \code{\link{DTR.KernSmooth}}.}
 
 \item{phi0}{The initial step size to be used in the Proximal Algorithm. The default value is 1.}
 
 \item{gamma}{The multiplier of the step sizes to be used in the Proximal
-Algorithm. Must be gamma > 1. The default value is 1.1.}
+Algorithm. Must be gamma > 1. The default value is 2.}
 
-\item{err_tol}{The desired accuracy in the estimation. The default value is 1e-8.}
+\item{err_tol}{The desired accuracy in the estimation. The default value is 1e-4.}
 
 \item{iter_tol}{The maximum number of iterations in the estimation algorithm.
-The default value is 100.}
+The default value is 200.}
 }
 \value{
 An object of class "DTR.Boots.KernSmooth", which is a list containing
@@ -82,9 +86,9 @@ This function constructs confidence intervals for the optimal linear
 treatment regime vector by wild bootstrap procedures. The bootstrapped estimate
 of the smoothed robust estimator is defined as the vector \eqn{\widehat{\bm{\beta}}^*}
 that maximizes
-\deqn{n^{-1}\sum_{i=1}^n \frac{\left[A_i K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)+(1-A_i)\left\{1-K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)\right\}\right]r_iY_i}{\pi(\bm{x}_i, \widehat{\bm{\xi}})K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right) + \left[1-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right]\left[1-K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)\right]}-
-n^{-1}\sum_{i=1}^n \frac{\left[A_i-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right]r_i \widehat{m}_1(\bm{x}_i)I\left(\bm{x}_i^T\bm{\beta}>0\right)-\left[A_i-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right] r_i\widehat{m}_0(\bm{x}_i)I\left(\bm{x}_i^T\bm{\beta}\leq 0\right)}
-{\pi(\bm{x}_i, \widehat{\bm{\xi}})K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right) + \left[1-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right]\left[1-K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)\right]},}
+\deqn{n^{-1}\sum_{i=1}^n \frac{\left[A_i K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)+(1-A_i)\left\{1-K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)\right\}\right]r_iY_i}{\pi_a(\bm{x}_i, \widehat{\bm{\xi}})}-
+n^{-1}\sum_{i=1}^n \frac{\left[A_i-\pi_a(\bm{x}_i, \widehat{\bm{\xi}})\right]r_i\widehat{m}_1(\bm{x}_i)K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)+\left[1-A_i-\pi_a(\bm{x}_i, \widehat{\bm{\xi}})\right]r_i \widehat{m}_0(\bm{x}_i) \left\{1-K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)\right\}}
+{\pi_a(\bm{x}_i, \widehat{\bm{\xi}})},}
 with the second term as the doubly correction, where \eqn{r_i}'s are i.i.d N(1,1). \cr
 Let \eqn{\xi_j^{\circ(\alpha/2)}} and \eqn{\xi_j^{\circ(1-\alpha/2)}} be the \eqn{(\alpha/2)}-th
 and \eqn{(1-\alpha/2)}-th quantile of the bootstrap distribution of
@@ -94,9 +98,9 @@ and \eqn{\xi_j^{\circ(1-\alpha/2)}} from a large number of bootstrap samples. An
 \eqn{100(1-\alpha)\%} bootstrap confidence interval for \eqn{\beta_{0j}}, is given by
 \deqn{\left\{\widehat{\beta}_j-(nh_n)^{-1/2}\xi_j^{\circ(1-\alpha/2)}, \widehat{\beta}_j-(nh_n)^{-1/2}\xi_j^{\circ(\alpha/2)}\right\}.}
 To construct confidence intervals for the optimal value \eqn{V(\bm{\beta}_0)}, we define
-\deqn{V_n^*(\widehat{\bm{\beta}}) = n^{-1}\sum_{i=1}^n \frac{\left[A_i I\left(\bm{x}_i^T\widehat{\bm{\beta}}>0\right)+(1-A_i)I\left(\bm{x}_i^T\widehat{\bm{\beta}}\leq 0 \right) \right]r_iY_i}{\pi(\bm{x}_i, \widehat{\bm{\xi}}) I\left(\bm{x}_i^T\widehat{\bm{\beta}}>0\right) + \left[1-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right] I\left(\bm{x}_i^T\widehat{\bm{\beta}}\leq 0\right)}-
-n^{-1}\sum_{i=1}^n \frac{\left[A_i-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right]r_i \widehat{m}_1(\bm{x}_i)I\left(\bm{x}_i^T\bm{\beta}>0\right)-\left[A_i-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right]r_i \widehat{m}_0(\bm{x}_i)I\left(\bm{x}_i^T\bm{\beta}\leq 0\right)}
-{\pi(\bm{x}_i, \widehat{\bm{\xi}})I\left(\bm{x}_i^T\bm{\beta}>0\right) + \left[1-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right]I\left(\bm{x}_i^T\bm{\beta}\leq 0\right)},}
+\deqn{V_n^*(\widehat{\bm{\beta}}) = n^{-1}\sum_{i=1}^n \frac{\left[A_i I\left(\bm{x}_i^T\widehat{\bm{\beta}}>0\right)+(1-A_i)I\left(\bm{x}_i^T\widehat{\bm{\beta}}\leq 0 \right) \right]r_iY_i}{\pi_a(\bm{x}_i, \widehat{\bm{\xi}})}-
+n^{-1}\sum_{i=1}^n \frac{\left[A_i-\pi_a(\bm{x}_i, \widehat{\bm{\xi}})\right]r_i \widehat{m}_1(\bm{x}_i)I\left(\bm{x}_i^T\bm{\beta}>0\right)+\left[1-A_i-\pi_a(\bm{x}_i, \widehat{\bm{\xi}})\right]r_i \widehat{m}_0(\bm{x}_i)I\left(\bm{x}_i^T\bm{\beta}\leq 0\right)}
+{\pi_a(\bm{x}_i, \widehat{\bm{\xi}})},}
 where \eqn{r_i}'s are i.i.d N(1,1). Let \eqn{d^{\circ(\alpha/2)}} and \eqn{d^{\circ(1-\alpha/2)}}
 be the \eqn{(\alpha/2)}-th and \eqn{(1-\alpha/2)}-th quantile of the bootstrap
 distribution of \eqn{n^{1/2}\{V_n^*(\widehat{\bm{\beta}})-V_n(\widehat{\bm{\beta}})\}},
@@ -106,33 +110,33 @@ respectively. An asymptotic \eqn{100(1-\alpha)\%} bootstrap confidence interval 
 See more details in the reference.
 }
 \examples{
-n <- 1000; p <- 3
+n <- 500; p <- 3
 beta <- c(0.2,1,-0.5,-0.8)*0.7
 beta1 <- c(1,-0.5,-0.5,0.5)
 
-set.seed(123)
+set.seed(12345)
 X <- matrix(rnorm(n*p),n)
-a <- rbinom(n,1,0.6)
+a <- rbinom(n,1,0.7)
 mean1 <- exp(cbind(1,X) \%*\% beta1)
 mean2 <- 8/(1 + exp(-cbind(1,X) \%*\% beta)) - 4
 y <- mean1 + a * mean2 + rnorm(n)
 
-boots_smooth_model_ci <- DTR.Boots.KernSmooth(X, y, a, prob = 0.6, B = 100)
+boots_smooth_model_ci <- DTR.Boots.KernSmooth(X, y, a, prob = 0.4*a+0.3, B = 100)
 boots_smooth_model_ci$Beta_CI
 boots_smooth_model_ci$value_CI
 
 \dontrun{
-boots_smooth_model_ic <- DTR.Boots.KernSmooth(X, y, a, prob = 0.4, B = 100,
-                                              m0 = mean1, m1 = mean1 + mean2)
+boots_smooth_model_ic <- DTR.Boots.KernSmooth(X, y, a, B = 100, m0 = mean1,
+                                              m1 = mean1 + mean2)
 boots_smooth_model_ic$Beta_CI
 boots_smooth_model_ic$value_CI
 
-boots_smooth_model_cc <- DTR.Boots.KernSmooth(X, y, a, prob = 0.6, B = 100,
+boots_smooth_model_cc <- DTR.Boots.KernSmooth(X, y, a, prob = 0.4*a+0.3, B = 100,
                                               m0 = mean1, m1 = mean1 + mean2)
 boots_smooth_model_cc$Beta_CI
 boots_smooth_model_cc$value_CI
 
-boots_smooth_model_ii <- DTR.Boots.KernSmooth(X, y, a, prob = 0.4, B = 100)
+boots_smooth_model_ii <- DTR.Boots.KernSmooth(X, y, a, B = 100)
 boots_smooth_model_ii$Beta_CI
 boots_smooth_model_ii$value_CI
 }

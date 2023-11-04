@@ -9,14 +9,15 @@ DTR.KernSmooth(
   X,
   y,
   a,
+  intercept = TRUE,
   prob = 0.5,
   m0 = mean(y[a == 0]),
   m1 = mean(y[a == 1]),
   kernel = "normal",
   phi0 = 1,
-  gamma = 1.1,
-  err_tol = 1e-08,
-  iter_tol = 100
+  gamma = 2,
+  err_tol = 1e-04,
+  iter_tol = 200
 )
 }
 \arguments{
@@ -27,7 +28,10 @@ the treatment recommended by the optimal regime.}
 
 \item{a}{Received treatments for n_obs subjects. Must be bivariate, and labeled as \{0,1\}.}
 
-\item{prob}{The propensity score for n_obs subjects, i.e., P(a=1|X). If \code{NULL},
+\item{intercept}{Logical. \code{TRUE} (default) if the intercept is included in estimating
+the optimal treatment regime and \code{FALSE} if not.}
+
+\item{prob}{The probability to receive the assigned treatments for the n_obs subjects, i.e., P(a=a_i|X_i). If \code{NULL},
 it would be estimated by logistic regression a~X.}
 
 \item{m0}{The estimated response values if the subjects receive treatment 0.
@@ -37,18 +41,18 @@ The default is the average response value of all subjects who receive treatment 
 The default is the average response value of all subjects who receive treatment 1.}
 
 \item{kernel}{The kernel function to be used in smoothed estimation. Should be
-one of "normal" and "poly". The default value is "normal". See more details in "Details".}
+one of "normal", "poly1" and "poly2". The default value is "normal". See more details in "Details".}
 
 \item{phi0}{The initial step size to be used in the Proximal Algorithm. The
 default value is 1.}
 
 \item{gamma}{The multiplier of the step sizes to be used in the Proximal
-Algorithm. Must be gamma > 1. The default value is 1.1.}
+Algorithm. Must be gamma > 1. The default value is 2.}
 
-\item{err_tol}{The desired accuracy in the estimation. The default value is 1e-8.}
+\item{err_tol}{The desired accuracy in the estimation. The default value is 1e-4.}
 
 \item{iter_tol}{The maximum number of iterations in the estimation algorithm.
-The default value is 100.}
+The default value is 200.}
 }
 \value{
 An object of class "DTR.KernSmooth", which is a list containing at
@@ -56,6 +60,8 @@ least the following components:
  \item{X}{The input matrix used.}
  \item{y}{The response variable used.}
  \item{a}{The treatment vector received by each subject.}
+ \item{intercept}{Logical which indicates whether the intercept is included in
+ estimating the optimal treatment regime.}
  \item{prob}{The propensity score vector for each subject.}
  \item{m0}{The estimated response values used if the subjects receive treatment 0.}
  \item{m1}{The estimated response values used if the subjects receive treatment 1.}
@@ -81,11 +87,14 @@ recommended by this treatment regime.\cr
 Assume the propensity score \eqn{\pi(\bm{x})=P(A=1|\bm{x})}  can be modeled as
 \eqn{\pi(\bm{x},\bm{\xi})} where \eqn{\bm{\xi}} is a finite-dimensional parameter
 (e.g., via logistic regression). Let \eqn{\widehat{\bm{\xi}}} be an estimate
-of \eqn{\bm{\xi}}. Hence, our goal is to estimate \eqn{\bm{\beta}} which maximizes:
+of \eqn{\bm{\xi}}. LetLet \eqn{\pi_a(\bm{x}_i, \widehat{\bm{\xi}})=A_i\pi(\bm{x}_i, \widehat{\bm{\xi}})
++ (1-A_i)\left[1-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right]}, and \eqn{\widehat{m}_c(\bm{x}_i, \widehat{\bm{\beta}})
+ = I\left(\bm{x}_i^T\bm{\beta}>0\right)\widehat{m}_1(\bm{x}_i)
+ +  I\left(\bm{x}_i^T\bm{\beta}\leq 0\right)\widehat{m}_0(\bm{x}_i)}
+Hence, our goal is to estimate \eqn{\bm{\beta}} which maximizes:
 \deqn{V_n(\bm{\beta})=n^{-1}\sum_{i=1}^n \frac{\left[A_i I\left(\bm{x}_i^T\bm{\beta}>0\right)+(1-A_i)I\left(\bm{x}_i^T\bm{\beta}\leq 0\right)\right]Y_i}
-{\pi(\bm{x}_i, \widehat{\bm{\xi}})I\left(\bm{x}_i^T\bm{\beta}>0\right) + \left[1-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right]I\left(\bm{x}_i^T\bm{\beta}\leq 0\right)}-
-n^{-1}\sum_{i=1}^n \frac{\left[A_i-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right] \widehat{m}_1(\bm{x}_i)I\left(\bm{x}_i^T\bm{\beta}>0\right)-\left[A_i-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right] \widehat{m}_0(\bm{x}_i)I\left(\bm{x}_i^T\bm{\beta}\leq 0\right)}
-{\pi(\bm{x}_i, \widehat{\bm{\xi}})I\left(\bm{x}_i^T\bm{\beta}>0\right) + \left[1-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right]I\left(\bm{x}_i^T\bm{\beta}\leq 0\right)},}
+{\pi_a(\bm{x}_i, \widehat{\bm{\xi}})}- n^{-1}\sum_{i=1}^n \frac{ A_i I\left(\bm{x}_i^T\bm{\beta}>0\right)+(1-A_i)I\left(\bm{x}_i^T\bm{\beta}\leq 0\right) -\pi_a(\bm{x}_i, \widehat{\bm{\xi}})}
+{\pi_a(\bm{x}_i, \widehat{\bm{\xi}})}\widehat{m}_c(\bm{x}_i, \widehat{\bm{\beta}}),}
 with the second term as the doubly correction.
 For the identifiability, we normalize the estimator such that the second element
 has magnitude 1, i.e., \eqn{|\widehat{\beta}_2|=1}.\cr
@@ -94,42 +103,42 @@ and derive asymptotic distribution of the estimators, we consider to use a smoot
 function \eqn{K(\cdot)} to approximate the indicator function \eqn{I(\cdot)}.
 That is, we will estimate \eqn{\bm{\beta}} which maximizes:
 \deqn{n^{-1}\sum_{i=1}^n \frac{\left[A_i K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)+(1-A_i)\left\{1-K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)\right\}\right]Y_i}
-{\pi(\bm{x}_i, \widehat{\bm{\xi}}) K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right) + \left[1-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right]*\left[1-K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)\right]}-
-n^{-1}\sum_{i=1}^n \frac{\left[A_i-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right] \widehat{m}_1(\bm{x}_i)K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)-\left[A_i-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right] \widehat{m}_0(\bm{x}_i) \left\{1-K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)\right\}}
-{\pi(\bm{x}_i, \widehat{\bm{\xi}})K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right) + \left[1-\pi(\bm{x}_i, \widehat{\bm{\xi}})\right] \left\{1-K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)\right\}}.}
-In this function, we provide two options for the smoothed kernel functions:
-\itemize{
- \item{"normal" }{ The c.d.f of N(0,1) distribution. The bandwidth is set as \eqn{h_n=0.9n^{-0.2} \min\{std (\bm{x}_i^T\bm{\beta}),IQR(\bm{x}_i^T\bm{\beta})/1.34\}}.}
- \item{"poly" }{   A polynomial function \eqn{K(v) =\left[0.5 + \frac{105}{64}\{\frac{v}{5}-\frac{5}{3}(\frac{v}{5})^3 +\frac{7}{5}(\frac{v}{5})^5 - \frac{3}{7}(\frac{v}{5})^7\}\right]I( -5\leq v \leq 5)+I(v>5)}. The bandwidth is set as \eqn{h_n=0.9n^{-1/9} \min\{std (\bm{x}_i^T\bm{\beta}),IQR(\bm{x}_i^T\bm{\beta})/1.34\}}.}
+{\pi_a(\bm{x}_i, \widehat{\bm{\xi}})}- n^{-1}\sum_{i=1}^n \frac{\left[A_i-\pi_a(\bm{x}_i, \widehat{\bm{\xi}})\right] \widehat{m}_1(\bm{x}_i)K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)+\left[1-A_i-\pi_a(\bm{x}_i, \widehat{\bm{\xi}})\right] \widehat{m}_0(\bm{x}_i) \left\{1-K\left(\frac{\bm{x}_i^T\bm{\beta}}{h_n}\right)\right\}}
+{\pi_a(\bm{x}_i, \widehat{\bm{\xi}})}.}
+In this function, we provide three options for the smoothed kernel functions:
+\describe{
+ \item{"normal"}{The c.d.f of N(0,1) distribution. The bandwidth is set as \eqn{h_n=0.9n^{-0.2} \min\{std (\bm{x}_i^T\bm{\beta}),IQR(\bm{x}_i^T\bm{\beta})/1.34\}}.}
+ \item{"poly1"}{A polynomial function \eqn{K(v) =\left[0.5 + \frac{105}{64}\{\frac{v}{5}-\frac{5}{3}(\frac{v}{5})^3 +\frac{7}{5}(\frac{v}{5})^5 - \frac{3}{7}(\frac{v}{5})^7\}\right]I( -5\leq v \leq 5)+I(v>5)}. The bandwidth is set as \eqn{h_n=0.9n^{-1/9} \min\{std (\bm{x}_i^T\bm{\beta}),IQR(\bm{x}_i^T\bm{\beta})/1.34\}}.}
+ \item{"poly2"}{A polynomial function \eqn{K(v) =\left[0.5 + \frac{225}{128}\{\frac{v}{5}-\frac{14}{9}(\frac{v}{5})^3 +\frac{21}{25}(\frac{v}{5})^5\}\right]I( -5\leq v \leq 5)+I(v>5)}. The bandwidth is set as \eqn{h_n=0.9n^{-1/13} \min\{std (\bm{x}_i^T\bm{\beta}),IQR(\bm{x}_i^T\bm{\beta})/1.34\}}.}
  }
 To solve the non-convexity problem of the optimization, we employ a proximal
 gradient descent algorithm for estimation. See more details in the reference.
 }
 \examples{
-n <- 1000; p <- 3
+n <- 500; p <- 3
 beta <- c(0.2,1,-0.5,-0.8)*0.7
 beta1 <- c(1,-0.5,-0.5,0.5)
 
-set.seed(123)
+set.seed(12345)
 X <- matrix(rnorm(n*p),n)
-a <- rbinom(n,1,0.6)
+a <- rbinom(n,1,0.7)
 mean1 <- exp(cbind(1,X) \%*\% beta1)
 mean2 <- 8/(1 + exp(-cbind(1,X) \%*\% beta)) - 4
 y <- mean1 + a * mean2 + rnorm(n)
 
-smooth_model_ci <- DTR.KernSmooth(X, y, a, prob = 0.6)
+smooth_model_ci <- DTR.KernSmooth(X, y, a, prob = 0.3 + 0.4*a, m0 = 0, m1 = 0)
 smooth_model_ci$beta_smooth
 smooth_model_ci$value_smooth
 
-smooth_model_ic <- DTR.KernSmooth(X, y, a, prob = 0.4, m0 = mean1, m1 = mean1 + mean2)
+smooth_model_ic <- DTR.KernSmooth(X, y, a, m0 = mean1, m1 = mean1 + mean2)
 smooth_model_ic$beta_smooth
 smooth_model_ic$value_smooth
 
-smooth_model_cc <- DTR.KernSmooth(X, y, a, prob = 0.6, m0 = mean1, m1 = mean1 + mean2)
+smooth_model_cc <- DTR.KernSmooth(X, y, a, prob = 0.3 + 0.4*a, m0 = mean1, m1 = mean1 + mean2)
 smooth_model_cc$beta_smooth
 smooth_model_cc$value_smooth
 
-smooth_model_ii <- DTR.KernSmooth(X, y, a, prob = 0.4)
+smooth_model_ii <- DTR.KernSmooth(X, y, a)
 smooth_model_ii$beta_smooth
 smooth_model_ii$value_smooth
 
